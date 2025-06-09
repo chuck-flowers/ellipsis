@@ -46,6 +46,8 @@ install() {
 			if ! _package=$(lsAllPackages | fzf --prompt 'Install Package > '); then
 				return
 			fi
+		else
+			fail "Unable to find fzf on PATH"
 		fi
 	fi
 
@@ -75,6 +77,8 @@ uninstall() {
 			if ! _package=$(lsInstalledPackages | fzf --prompt 'Uninstall Package > '); then
 				return
 			fi
+		else
+			fail "Unable to find fzf on PATH"
 		fi
 	fi
 
