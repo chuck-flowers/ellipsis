@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+_ellipsis_repo="$HOME/.dotfiles/"
+_config_dir="${XDG_CONFIG_DIR:-$HOME/.config}"
+
+main() {
+	while getopts 'i' flag; do
+		case $flag in
+			'i')
+				_flag_i=1
+				;;
+			*)
+				fail "Unknown flag -$flag"
+				;;
+		esac
+	done
+	shift $((OPTIND - 1))
+
+	_verb=$1
+	shift
+	case "$_verb" in
+		'install')
+			install "$@"
+			;;
+		'ls')
+			if [[ $_flag_i -eq 1 ]]; then
+				lsInstalledPackages
+			else
+				lsAllPackages
+			fi
+			;;
+		'uninstall')
+			uninstall "$@"
+			;;
+		*)
+			fail "Unknown command: $_verb"
+			;;
+	esac
+}
+
+install() {
+	_package="$1"
+
+	if [[ -z "$_package" ]]; then
+		if command  -v fzf >&/dev/null; then
+			if ! _package=$(lsAllPackages | fzf --prompt 'Install Package > '); then
+				return
+			fi
+		fi
+	fi
+
+	stow -d "$_ellipsis_repo" "$_package"
+}
+
+lsAllPackages() {
+	realpath --relative-to "$_ellipsis_repo" "$_ellipsis_repo"/*
+}
+
+lsInstalledPackages() {
+	cat <(find "$HOME" -maxdepth 1 -type l) <(find "$HOME/.config" -type l) \
+		| while read -r _link; do
+			realpath "$_link" 2>/dev/null
+		done \
+		| grep -E "^$_ellipsis_repo" \
+		| xargs realpath --relative-to "$_ellipsis_repo" \
+		| cut -d / -f1 \
+		| sort -u 
+}
+
+uninstall() {
+	_package="$1"
+
+	if [[ -z "$_package" ]]; then
+		if command  -v fzf >&/dev/null; then
+			if ! _package=$(lsInstalledPackages | fzf --prompt 'Uninstall Package > '); then
+				return
+			fi
+		fi
+	fi
+
+	stow -d "$_ellipsis_repo" --delete "$_package"
+}
+
+fail() {
+	echo "$@" >&2
+	exit 1
+}
+
+debug() {
+	echo "$@" >&2
+}
+
+main "$@"
+
