@@ -1,61 +1,162 @@
 #!/usr/bin/env bash
 
-_ellipsis_repo="$HOME/.dotfiles/"
-_config_dir="${XDG_CONFIG_DIR:-$HOME/.config}"
+# Configuration
+_repo=${ELLIPSIS_REPO:-$HOME/.dotfiles}
+_target=${ELLIPSIS_TARGET:-$HOME}
 
 main() {
-	while getopts 'i' flag; do
-		case $flag in
-			'i')
-				_flag_i=1
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis <verb>
+
+		An interactive dotfile manager using GNU Stow
+
+		<verb>
+		  init      - Initialize ellipsis in the environment
+		  mk        - Create a package
+		  ls        - List available packages
+		  mv        - Move a file/directory to be managed by ellipsis
+		  add       - Add a pacakge to the environment
+		  rm        - Remove a package from the environment
+		EOF
+	}
+
+	# Parse global options
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage
+				exit 0
 				;;
-			*)
-				fail "Unknown flag -$flag"
+			'?')
+				showUsage
+				exit 1
 				;;
 		esac
 	done
-	shift $((OPTIND - 1))
 
+	# Capture the verb
 	_verb=$1
 	shift
+
 	case "$_verb" in
-		'install')
-			install "$@"
+		'init')
+			verb_init "$@"
 			;;
 		'ls')
-			if [[ $_flag_i -eq 1 ]]; then
-				lsInstalledPackages
-			else
-				lsAllPackages
-			fi
+			verb_ls "$@"
 			;;
-		'uninstall')
-			uninstall "$@"
+		'mk')
+			verb_mk "$@"
+			;;
+		'mv')
+			verb_mv "$@"
+			;;
+		'add')
+			verb_add "$@"
+			;;
+		'rm')
+			verb_rm "$@"
+			;;
+		'')
+			echo 'No verb specified'
+			showUsage
+			exit  1
 			;;
 		*)
-			fail "Unknown command: $_verb"
+			echo "Unknown verb: $_verb"
+			showUsage
+			exit 1
 			;;
 	esac
 }
 
-install() {
-	_package="$1"
+########
+# INIT #
+########
 
-	if [[ -z "$_package" ]]; then
-		if command  -v fzf >&/dev/null; then
-			if ! _package=$(lsAllPackages | fzf --prompt 'Install Package > '); then
-				return
-			fi
-		else
-			fail "Unable to find fzf on PATH"
-		fi
+verb_init() {
+	showUsage() {
+		cat <<- EOF
+		Usage: ellipsis init
+
+		Inializes ellipsis on the current machine, if it is not currently
+		configured.
+		EOF
+	}
+
+	# Parse additional options
+	while getopts 'h' flag; do
+		case $flag in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	# Check if ellipsis is already installed
+	if [[ -e "$_repo" ]]; then
+		debug "Ellipsis appears to already be initialized on this machine; $_repo is populated"
+		exit 1
 	fi
 
-	stow -d "$_ellipsis_repo" "$_package"
+	# TODO: Initialize from GitHub repo
+
+	# Initialize directories on machine
+	if confirm "Initialize ellipsis using $_repo"; then
+		mkdir -p "$_repo"
+		exit 0
+	else
+		exit 1
+	fi
+}
+
+######
+# LS #
+######
+
+verb_ls() {
+	showUsage() {
+		cat <<- EOF
+		Usage: ellipsis ls [-i]
+
+		Lists all packages that are managed by ellipsis
+
+		OPTIONS
+		  -i - Only list the installed packages
+		EOF
+	}
+
+	while getopts 'ih' flag; do
+		case $flag in
+			'i')
+				_flag_i=1
+				;;
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	if [[ $_flag_i -eq 1 ]]; then
+		lsInstalledPackages
+	else
+		lsAllPackages
+	fi
 }
 
 lsAllPackages() {
-	realpath --relative-to "$_ellipsis_repo" "$_ellipsis_repo"/*
+	realpath --relative-to "$_repo" "$_repo"/*
 }
 
 lsInstalledPackages() {
@@ -63,26 +164,211 @@ lsInstalledPackages() {
 		| while read -r _link; do
 			realpath "$_link" 2>/dev/null
 		done \
-		| grep -E "^$_ellipsis_repo" \
-		| xargs realpath --relative-to "$_ellipsis_repo" \
+		| grep -E "^$_repo" \
+		| xargs realpath --relative-to "$_repo" \
 		| cut -d / -f1 \
 		| sort -u 
 }
 
-uninstall() {
-	_package="$1"
+######
+# MK #
+######
 
-	if [[ -z "$_package" ]]; then
-		if command  -v fzf >&/dev/null; then
-			if ! _package=$(lsInstalledPackages | fzf --prompt 'Uninstall Package > '); then
-				return
-			fi
-		else
-			fail "Unable to find fzf on PATH"
+verb_mk() {
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis mk <package>
+
+		Creates a new package to be managed by ellipsis
+
+		<package> - The name of the package to create
+		EOF
+	}
+
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	# Validate that package(s) was specified
+	if [[ -z "$*" ]]; then
+		debug "No package(s) specified"
+		showUsage
+		exit 1
+	fi
+
+	for package in "$@"; do
+		mkdir -p "$_repo/$package"
+	done
+}
+
+#######
+# MV #
+#######
+
+verb_mv() {
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis mv [-p <package>] <file> [<file>...]
+
+		Specifies a file/directory to manage with ellipsis
+
+		file - The file(s) that the user wants to begin managing using ellipsis
+
+		OPTIONS
+		  -p <package> - Specifies the file(s) should be added to <package>. If
+		  unspecified, an interactive picker will be presented to the user.
+		EOF
+	}
+
+	local package
+	while getopts 'ph' flag; do
+		case "$flag" in
+			'p')
+				package="$2"
+				shift 2
+				;;
+			'h')
+				showUsage 
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	if [[ "$*" == "" ]]; then
+		debug "No file(s) were specified for adoption"
+		exit 1
+	fi
+
+	# If no package has been specified, prompt the user for one.
+	if [[ -z "$package" ]]; then
+		if ! package="$(lsAllPackages | pick)"; then
+			debug "No package was specified"
+			exit 1
 		fi
 	fi
 
-	stow -d "$_ellipsis_repo" --delete "$_package"
+	# Adopt the files into the specified package
+	for file in "$@"; do
+		_dst="$_repo/$package/$(realpath --relative-to "$_target" "$file")"
+		mkdir -p "$(dirname "$_dst")"
+		mv "$file" "$_dst"
+		ln -s "$file" "$_dst"
+	done
+
+	install "$package"
+}
+
+#######
+# ADD #
+#######
+
+verb_add() {
+	local package="$1"
+
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis add [<package>]
+
+		Add a package to the user's environment
+
+		package - The package which should be installed. If none is specified,
+		an interactive picker will be presented to the user.
+		EOF
+	}
+
+	# If no package is specified, prompt the user to pick one
+	if [[ -z "$package" ]]; then
+		if ! package=$(lsAllPackages | pick); then
+			debug "No package specified"
+			exit 1
+		fi
+	fi
+
+	stow "$package"
+}
+
+######
+# RM #
+######
+
+verb_uninstall() {
+	local package="$1"
+	
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis uninstall [<package>]
+
+		Removes a package from the user's environment
+
+		package - The package which should be removed. If none is specified, an
+		interactive picker will be presented to the user.
+		EOF
+	}
+
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	# If no package is specified, prompt the user to pick one
+	if [[ -z "$package" ]]; then
+		if ! package=$(lsInstalledPackages | pick); then
+			debug "No package specified"
+			exit 1
+		fi
+	fi
+
+	stow --delete "$package"
+}
+
+#########
+# UTILS #
+#########
+
+confirm() {
+	local prompt="$1"
+
+	while true; do
+		read -rp "$prompt (y/n): " answer
+		case "$answer" in
+			'y')
+				return 0
+				;;
+			'n')
+				return 1
+				;;
+		esac
+	done
+}
+
+pick() {
+	if command -v fzf &>/dev/null; then
+		fzf
+	else
+		debug "No supported picker (e.g. fzf) is installed"
+		return 1
+	fi
 }
 
 fail() {
@@ -92,6 +378,10 @@ fail() {
 
 debug() {
 	echo "$@" >&2
+}
+
+stow() {
+	command stow --dir "$_repo" --target "$_target" "$@"
 }
 
 main "$@"
