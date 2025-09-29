@@ -274,11 +274,9 @@ verb_mv() {
 #######
 
 verb_add() {
-	local package="$1"
-
 	showUsage() {
 		cat <<- 'EOF'
-		Usage: ellipsis add [<package>]
+		Usage: ellipsis add [<package>...]
 
 		Add a package to the user's environment
 
@@ -287,27 +285,44 @@ verb_add() {
 		EOF
 	}
 
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 0
+				;;
+		esac
+	done
+
+	local packages="$*"
+
 	# If no package is specified, prompt the user to pick one
-	if [[ -z "$package" ]]; then
-		if ! package=$(lsAllPackages | pick); then
+	if [[ -z "$packages" ]]; then
+		if ! packages=$(lsAllPackages | pick); then
 			debug "No package specified"
 			exit 1
 		fi
 	fi
 
-	stow "$package"
+	for package in $packages; do
+		stow "$package"
+	done
 }
 
 ######
 # RM #
 ######
 
-verb_uninstall() {
+verb_rm() {
 	local package="$1"
 	
 	showUsage() {
 		cat <<- 'EOF'
-		Usage: ellipsis uninstall [<package>]
+		Usage: ellipsis uninstall [<package>...]
 
 		Removes a package from the user's environment
 
@@ -329,15 +344,19 @@ verb_uninstall() {
 		esac
 	done
 
+	local packages="$*"
+
 	# If no package is specified, prompt the user to pick one
-	if [[ -z "$package" ]]; then
-		if ! package=$(lsInstalledPackages | pick); then
+	if [[ -z "$packages" ]]; then
+		if ! packages=$(lsAllPackages | pick); then
 			debug "No package specified"
 			exit 1
 		fi
 	fi
 
-	stow --delete "$package"
+	for package in $packages; do
+		stow --delete "$package"
+	done
 }
 
 #########
