@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+shopt -s nullglob
+
 # Configuration
 _repo=${ELLIPSIS_REPO:-$HOME/.ellipsis}
 _target=${ELLIPSIS_TARGET:-$HOME}
@@ -156,7 +158,9 @@ verb_ls() {
 }
 
 lsAllPackages() {
-	realpath --relative-to "$_repo" "$_repo"/*
+	for package in "$_repo"/*; do
+		realpath --relative-to "$_repo" "$package"
+	done
 }
 
 lsInstalledPackages() {
