@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Configuration
-_repo=${ELLIPSIS_REPO:-$HOME/.dotfiles}
+_repo=${ELLIPSIS_REPO:-$HOME/.ellipsis}
 _target=${ELLIPSIS_TARGET:-$HOME}
 
 main() {
