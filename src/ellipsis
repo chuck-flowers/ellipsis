@@ -131,13 +131,17 @@ verb_ls() {
 
 		OPTIONS
 		  -i - Only list the installed packages
+		  -u - Only list uninstalled packages
 		EOF
 	}
 
-	while getopts 'ih' flag; do
+	while getopts 'iuh' flag; do
 		case $flag in
 			'i')
 				_flag_i=1
+				;;
+			'u')
+				_flag_u=1
 				;;
 			'h')
 				showUsage
@@ -152,6 +156,8 @@ verb_ls() {
 
 	if [[ $_flag_i -eq 1 ]]; then
 		lsInstalledPackages
+	elif [[ $_flag_u -eq 1 ]]; then
+		comm -23 <(lsAllPackages) <(lsInstalledPackages)
 	else
 		lsAllPackages
 	fi
