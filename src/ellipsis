@@ -265,9 +265,10 @@ verb_mv() {
 	# Adopt the files into the specified package
 	for file in "$@"; do
 		_dst="$_repo/$package/$(realpath --relative-to "$_target" "$file")"
+
 		mkdir -p "$(dirname "$_dst")"
 		mv "$file" "$_dst"
-		ln -s "$file" "$_dst"
+		ln -s "$(realpath  --relative-to "$(dirname "$file")" "$_dst")" "$file"
 	done
 }
 
