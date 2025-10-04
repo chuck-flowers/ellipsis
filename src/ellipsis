@@ -269,8 +269,6 @@ verb_mv() {
 		mv "$file" "$_dst"
 		ln -s "$file" "$_dst"
 	done
-
-	install "$package"
 }
 
 #######
