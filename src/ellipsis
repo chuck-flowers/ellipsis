@@ -9,17 +9,14 @@ _target=${ELLIPSIS_TARGET:-$HOME}
 main() {
 	showUsage() {
 		cat <<- 'EOF'
-		Usage: ellipsis <verb>
+		Usage: ellipsis <command>
 
 		An interactive dotfile manager using GNU Stow
 
-		<verb>
-		  init      - Initialize ellipsis in the environment
-		  mk        - Create a package
-		  ls        - List available packages
-		  mv        - Move a file/directory to be managed by ellipsis
-		  add       - Add a pacakge to the environment
-		  rm        - Remove a package from the environment
+		<command>
+		  init      - Initialize ellipsis repository/environment
+		  pkg       - Manages the packages in the ellipsis repository
+		  env       - Manages the packages/files in the ellipsis environment
 		EOF
 	}
 
@@ -38,35 +35,26 @@ main() {
 	done
 
 	# Capture the verb
-	_verb=$1
+	_command=$1
 	shift
 
-	case "$_verb" in
+	case "$_command" in
 		'init')
 			verb_init "$@"
 			;;
-		'ls')
-			verb_ls "$@"
+		'pkg')
+			verb_pkg "$@"
 			;;
-		'mk')
-			verb_mk "$@"
-			;;
-		'mv')
-			verb_mv "$@"
-			;;
-		'add')
-			verb_add "$@"
-			;;
-		'rm')
-			verb_rm "$@"
+		'env')
+			verb_env "$@"
 			;;
 		'')
-			echo 'No verb specified'
+			echo 'No command specified'
 			showUsage
 			exit  1
 			;;
 		*)
-			echo "Unknown verb: $_verb"
+			echo "Unknown command: $_command"
 			showUsage
 			exit 1
 			;;
@@ -118,14 +106,89 @@ verb_init() {
 	fi
 }
 
-######
-# LS #
-######
+#######
+# PKG #
+#######
 
-verb_ls() {
+verb_pkg() {
+	showUsage() {
+		cat <<-EOF
+		Usage: ellipsis pkg <command>
+
+		mk - Create a new package
+		ls - List packages managed by ellipsis
+		mv - Rename an existing package
+		rm - Delete an existing package
+		EOF
+	}
+
+	local _command=$1
+	shift
+
+	case "$_command" in
+		'mk')
+			verb_pkg_mk "$@"
+			;;
+		'ls')
+			verb_pkg_ls "$@"
+			;;
+		'mv')
+			verb_pkg_mv "$@"
+			;;
+		'rm')
+			verb_pkg_rm "$@"
+			;;
+	esac
+}
+
+##########
+# PKG MK #
+##########
+
+verb_pkg_mk() {
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis pkg mk <package>
+
+		Creates a new package to be managed by ellipsis
+
+		<package> - The name of the package to create
+		EOF
+	}
+
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	# Validate that package(s) was specified
+	if [[ -z "$*" ]]; then
+		debug "No package(s) specified"
+		showUsage
+		exit 1
+	fi
+
+	for package in "$@"; do
+		mkdir -p "$_repo/$package"
+	done
+}
+
+##########
+# PKG LS #
+##########
+
+verb_pkg_ls() {
 	showUsage() {
 		cat <<- EOF
-		Usage: ellipsis ls [-i]
+		Usage: ellipsis pkg ls [-i | -u]
 
 		Lists all packages that are managed by ellipsis
 
@@ -178,18 +241,50 @@ lsInstalledPackages() {
 		| sort -u 
 }
 
-######
-# MK #
-######
+##########
+# PKG MV #
+##########
 
-verb_mk() {
+verb_pkg_mv() {
 	showUsage() {
 		cat <<- 'EOF'
-		Usage: ellipsis mk <package>
+		Usage: ellipsis pkg mv <package> <name>
 
-		Creates a new package to be managed by ellipsis
+		<package> - The package to rename
+		<name>    - The new name of the package
+		EOF
+	}
 
-		<package> - The name of the package to create
+	while getopts 'h' flag; do
+		case $flag in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+}
+
+##########
+# PKG RM #
+##########
+
+verb_pkg_rm() {
+	local package="$1"
+	
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis pkg rm [<package>...]
+
+		Removes a package from the user's environment
+
+		package - The package which should be removed. If none is specified, an
+		interactive picker will be presented to the user.
 		EOF
 	}
 
@@ -206,46 +301,42 @@ verb_mk() {
 		esac
 	done
 
-	# Validate that package(s) was specified
-	if [[ -z "$*" ]]; then
-		debug "No package(s) specified"
-		showUsage
-		exit 1
+	local packages="$*"
+
+	# If no package is specified, prompt the user to pick one
+	if [[ -z "$packages" ]]; then
+		if ! packages=$(lsAllPackages | pick); then
+			debug "No package specified"
+			exit 1
+		fi
 	fi
 
-	for package in "$@"; do
-		mkdir -p "$_repo/$package"
+	for package in $packages; do
+		stow --delete "$package"
 	done
 }
 
 #######
-# MV #
+# ENV #
 #######
 
-verb_mv() {
+verb_env() {
 	showUsage() {
 		cat <<- 'EOF'
-		Usage: ellipsis mv [-p <package>] <file> [<file>...]
+		Usage: ellipsis env <command>
 
-		Specifies a file/directory to manage with ellipsis
-
-		file - The file(s) that the user wants to begin managing using ellipsis
-
-		OPTIONS
-		  -p <package> - Specifies the file(s) should be added to <package>. If
-		  unspecified, an interactive picker will be presented to the user.
+		<command>
+		  add - Add a package to the environment
+		  rm  - Remove a package from the environment
+		  pack?
+		  unpack?
 		EOF
 	}
 
-	local package
-	while getopts 'ph' flag; do
+	while getopt 'h' flag; do
 		case "$flag" in
-			'p')
-				package="$2"
-				shift 2
-				;;
 			'h')
-				showUsage 
+				showUsage
 				exit 0
 				;;
 			'?')
@@ -255,37 +346,33 @@ verb_mv() {
 		esac
 	done
 
-	if [[ "$*" == "" ]]; then
-		debug "No file(s) were specified for adoption"
-		exit 1
-	fi
+	local _command="$1"
+	shift
 
-	# If no package has been specified, prompt the user for one.
-	if [[ -z "$package" ]]; then
-		if ! package="$(lsAllPackages | pick)"; then
-			debug "No package was specified"
-			exit 1
-		fi
-	fi
-
-	# Adopt the files into the specified package
-	for file in "$@"; do
-		_dst="$_repo/$package/$(realpath --relative-to "$_target" "$file")"
-
-		mkdir -p "$(dirname "$_dst")"
-		mv "$file" "$_dst"
-		ln -s "$(realpath  --relative-to "$(dirname "$file")" "$_dst")" "$file"
-	done
+	case "$_command" in
+		'add')
+			verb_env_add "$@"
+			;;
+		'rm')
+			verb_env_rm "$@"
+			;;
+		'import'|'in'|'adopt'|'pack')
+			verb_env_pack "$@"
+			;;
+		'export'|'out'|'disown'|'unpack')
+			verb_env_unpack "$@"
+			;;
+	esac
 }
 
-#######
-# ADD #
-#######
+###########
+# ENV ADD #
+###########
 
-verb_add() {
+verb_env_add() {
 	showUsage() {
 		cat <<- 'EOF'
-		Usage: ellipsis add [<package>...]
+		Usage: ellipsis env add [<package>...]
 
 		Add a package to the user's environment
 
@@ -322,25 +409,22 @@ verb_add() {
 	done
 }
 
-######
-# RM #
-######
+##########
+# ENV RM #
+##########
 
-verb_rm() {
-	local package="$1"
-	
+verb_env_rm() {
 	showUsage() {
-		cat <<- 'EOF'
-		Usage: ellipsis uninstall [<package>...]
+		cat <<-'EOF'
+		Usage: ellipsis env rm <package...>
 
-		Removes a package from the user's environment
+		Remove a package from the environment
 
-		package - The package which should be removed. If none is specified, an
-		interactive picker will be presented to the user.
+		<package...> - The package(s) to remove from the environment
 		EOF
 	}
 
-	while getopts 'h' flag; do
+	while getopt 'h' flag; do
 		case "$flag" in
 			'h')
 				showUsage
@@ -353,18 +437,109 @@ verb_rm() {
 		esac
 	done
 
-	local packages="$*"
+}
 
-	# If no package is specified, prompt the user to pick one
-	if [[ -z "$packages" ]]; then
-		if ! packages=$(lsAllPackages | pick); then
-			debug "No package specified"
+############
+# ENV PACK #
+############
+
+verb_env_pack() {
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis env pack [-p <package>] <file> [<file>...]
+
+		Specifies a file/directory to begin managing in an ellipsis package
+
+		file - The file(s) that the user wants to begin managing using ellipsis
+
+		OPTIONS
+		  -p <package> - Specifies the file(s) should be added to <package>. If
+		  unspecified, an interactive picker will be presented to the user.
+		EOF
+	}
+
+	local package
+	while getopts 'ph' flag; do
+		case "$flag" in
+			'p')
+				package="$2"
+				shift 2
+				;;
+			'h')
+				showUsage 
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	if [[ "$*" == "" ]]; then
+		debug "No file(s) to pack were specified"
+		exit 1
+	fi
+
+	# If no package has been specified, prompt the user for one.
+	if [[ -z "$package" ]]; then
+		if ! package="$(lsAllPackages | pick)"; then
+			debug "No package was specified"
 			exit 1
 		fi
 	fi
 
-	for package in $packages; do
-		stow --delete "$package"
+	# Adopt the files into the specified package
+	for file in "$@"; do
+		_dst="$_repo/$package/$(realpath --relative-to "$_target" "$file")"
+
+		mkdir -p "$(dirname "$_dst")"
+		mv "$file" "$_dst"
+		ln -s "$(realpath  --relative-to "$(dirname "$file")" "$_dst")" "$file"
+	done
+}
+
+##############
+# ENV UNPACK #
+##############
+
+verb_env_unpack() {
+	showUsage() {
+		cat <<- 'EOF'
+		Usage: ellipsis env unpack <file> [<file>...]
+
+		Remove a file from its ellipsis repo/package, but keep it in the ellipsis target
+
+		file - The file(s) to unpack from the ellipsis repository
+		EOF
+	}
+
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage 
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	if [[ "$*" == "" ]]; then
+		debug "No file(s) to unpack were specified"
+		exit 1
+	fi
+
+	# Adopt the files into the specified package
+	for file in "$@"; do
+		continue # TODO
+		_dst="$_repo/$package/$(realpath --relative-to "$_target" "$file")"
+
+		mkdir -p "$(dirname "$_dst")"
+		mv "$file" "$_dst"
+		ln -s "$(realpath  --relative-to "$(dirname "$file")" "$_dst")" "$file"
 	done
 }
 
