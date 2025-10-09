@@ -547,14 +547,22 @@ verb_env_unpack() {
 		exit 1
 	fi
 
-	# Adopt the files into the specified package
 	for file in "$@"; do
-		continue # TODO
-		_dst="$_repo/$package/$(realpath --relative-to "$_target" "$file")"
+		# Confirm file is a symlink
+		if [[ ! -L $file ]]; then
+			debug "$file is not a symlink"
+			continue
+		fi
 
-		mkdir -p "$(dirname "$_dst")"
-		mv "$file" "$_dst"
-		ln -s "$(realpath  --relative-to "$(dirname "$file")" "$_dst")" "$file"
+		# Confirm this symlink is managed by ellipsis
+		_repo_file="$(realpath "$file")"
+		if [[ ! $_repo_file == $_repo* ]]; then
+			debug "$file is not managed by ellipsis"
+			continue
+		fi
+
+		# Replace symlink with target file
+		rm "$file" && mv "$_repo_file" "$file"
 	done
 }
 
