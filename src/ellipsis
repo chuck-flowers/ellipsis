@@ -77,7 +77,7 @@ verb_init() {
 
 	# Parse additional options
 	while getopts 'h' flag; do
-		case $flag in
+		case "$flag" in
 			'h')
 				showUsage
 				exit 0
@@ -115,12 +115,27 @@ verb_pkg() {
 		cat <<-EOF
 		Usage: ellipsis pkg <command>
 
-		mk - Create a new package
-		ls - List packages managed by ellipsis
-		mv - Rename an existing package
-		rm - Delete an existing package
+		<command>
+		  mk - Create a new package
+		  ls - List packages managed by ellipsis
+		  mv - Rename an existing package
+		  rm - Delete an existing package
 		EOF
 	}
+
+	# Parse additional options
+	while getopts 'h' flag; do
+		case $flag in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
 
 	local _command=$1
 	shift
@@ -333,7 +348,7 @@ verb_env() {
 		EOF
 	}
 
-	while getopt 'h' flag; do
+	while getopts 'h' flag; do
 		case "$flag" in
 			'h')
 				showUsage
@@ -424,7 +439,7 @@ verb_env_rm() {
 		EOF
 	}
 
-	while getopt 'h' flag; do
+	while getopts 'h' flag; do
 		case "$flag" in
 			'h')
 				showUsage
