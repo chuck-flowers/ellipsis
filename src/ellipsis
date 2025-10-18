@@ -377,6 +377,11 @@ verb_env() {
 		'export'|'out'|'disown'|'unpack')
 			verb_env_unpack "$@"
 			;;
+		*)
+			debug "Unknown command: $_command"
+			showUsage
+			exit 1
+			;;
 	esac
 }
 
