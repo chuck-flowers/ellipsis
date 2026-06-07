@@ -558,6 +558,7 @@ verb_env_unpack() {
 		esac
 	done
 
+	# TODO: Use picker
 	if [[ "$*" == "" ]]; then
 		debug "No file(s) to unpack were specified"
 		exit 1
@@ -565,6 +566,7 @@ verb_env_unpack() {
 
 	for file in "$@"; do
 		# Confirm file is a symlink
+		# TODO: Check if any parent is a symlink
 		if [[ ! -L $file ]]; then
 			debug "$file is not a symlink"
 			continue
