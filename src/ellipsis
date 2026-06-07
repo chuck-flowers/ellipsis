@@ -290,45 +290,7 @@ verb_pkg_mv() {
 ##########
 
 verb_pkg_rm() {
-	local package="$1"
-	
-	showUsage() {
-		cat <<- 'EOF'
-		Usage: ellipsis pkg rm [<package>...]
-
-		Removes a package from the user's environment
-
-		package - The package which should be removed. If none is specified, an
-		interactive picker will be presented to the user.
-		EOF
-	}
-
-	while getopts 'h' flag; do
-		case "$flag" in
-			'h')
-				showUsage
-				exit 0
-				;;
-			'?')
-				showUsage
-				exit 1
-				;;
-		esac
-	done
-
-	local packages="$*"
-
-	# If no package is specified, prompt the user to pick one
-	if [[ -z "$packages" ]]; then
-		if ! packages=$(lsAllPackages | pick); then
-			debug "No package specified"
-			exit 1
-		fi
-	fi
-
-	for package in $packages; do
-		stow --delete "$package"
-	done
+	false # TODO
 }
 
 #######
@@ -457,6 +419,19 @@ verb_env_rm() {
 		esac
 	done
 
+	local packages="$*"
+
+	# If no package is specified, prompt the user to pick one
+	if [[ -z "$packages" ]]; then
+		if ! packages=$(lsInstalledPackages | pick); then
+			debug "No package specified"
+			exit 1
+		fi
+	fi
+
+	for package in $packages; do
+		stow --delete "$package"
+	done
 }
 
 ############
