@@ -290,7 +290,43 @@ verb_pkg_mv() {
 ##########
 
 verb_pkg_rm() {
-	false # TODO
+	showUsage() {
+		cat <<-'EOF'
+		Usage: ellipsis pkg rm [<package...>]
+		EOF
+	}
+
+	while getopts 'h' flag; do
+		case "$flag" in
+			'h')
+				showUsage
+				exit 0
+				;;
+			'?')
+				showUsage
+				exit 1
+				;;
+		esac
+	done
+
+	local packages="$*"
+
+	# If no package is specified, prompt the user to pick one
+	if [[ -z "$packages" ]]; then
+		if ! packages=$(lsAllPackages | pick); then
+			debug "No package specified"
+			exit 1
+		fi
+	fi
+
+	for package in $packages; do
+		if confirm "Delete and uninstall $package"; then
+			verb_env_rm "$package"
+			rm -r "${_repo:?}/$package"
+		else
+			debug "Cancelled deletion"
+		fi
+	done
 }
 
 #######
@@ -303,10 +339,10 @@ verb_env() {
 		Usage: ellipsis env <command>
 
 		<command>
-		  add - Add a package to the environment
-		  rm  - Remove a package from the environment
-		  pack?
-		  unpack?
+		  add     - Add a package to the environment
+		  rm      - Remove a package from the environment
+		  pack    - Add a file in the env to a package
+		  unpack  - Remove a file in the env from its package
 		EOF
 	}
 
@@ -400,9 +436,9 @@ verb_env_rm() {
 		cat <<-'EOF'
 		Usage: ellipsis env rm <package...>
 
-		Remove a package from the environment
+		Uninstall a package from the environment
 
-		<package...> - The package(s) to remove from the environment
+		<package...> - The package(s) to uninstall from the environment
 		EOF
 	}
 
