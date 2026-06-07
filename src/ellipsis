@@ -68,16 +68,24 @@ main() {
 verb_init() {
 	showUsage() {
 		cat <<- EOF
-		Usage: ellipsis init
+		Usage: ellipsis init [-r git_repo]
 
 		Inializes ellipsis on the current machine, if it is not currently
 		configured.
+
+		OPTIONS
+		  -r - The URL of the git repository from which to initialize the
+		       ellipsis repo.
 		EOF
 	}
 
 	# Parse additional options
-	while getopts 'h' flag; do
+	while getopts 'rh' flag; do
 		case "$flag" in
+			'r')
+				_git_repo="$2"
+				shift
+				;;
 			'h')
 				showUsage
 				exit 0
@@ -95,12 +103,36 @@ verb_init() {
 		exit 1
 	fi
 
-	# TODO: Initialize from GitHub repo
+	# Initialize from git repo if specified
+	if [[ -n "$_git_repo" ]]; then
+		if [[ "$_git_repo" =~ ^[a-zA-Z0-9]{1,}/[a-zA-Z0-9]{1,}$ ]]; then
+			if command -v gh &>/dev/null && confirm "Initialize ellipsis repo at $_repo using 'gh repo clone $_git_repo'?"; then
+				gh repo clone "$_git_repo" "$_target"
+				return $?
+			fi
+
+			# Normalize the URL for cloning with 'git'
+			_git_repo="https://github.com/$_git_repo" 
+		fi
+
+		if ! command -v git &>/dev/null; then
+			debug "You must have 'git' installed to clone a git repository"
+			exit 1
+		fi
+
+		# Clone with git if available
+		if confirm "Initialize ellipsis repo at $_repo using 'git clone $_git_repo'?"; then
+			git clone "$_git_repo" "$_target"
+			return $?
+		else
+			return 1
+		fi
+	fi
 
 	# Initialize directories on machine
 	if confirm "Initialize ellipsis using $_repo"; then
 		mkdir -p "$_repo"
-		exit 0
+		return $?
 	else
 		exit 1
 	fi
