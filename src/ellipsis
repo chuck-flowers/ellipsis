@@ -14,9 +14,10 @@ main() {
 		An interactive dotfile manager using GNU Stow
 
 		<command>
-		  init      - Initialize ellipsis repository/environment
-		  pkg       - Manages the packages in the ellipsis repository
-		  env       - Manages the packages/files in the ellipsis environment
+		  init - Initialize ellipsis repository/environment
+		  pkg  - Manages the packages in the ellipsis repository
+		  env  - Manages the packages/files in the ellipsis environment
+		  git  - Run git commands within the ellipsis repository
 		EOF
 	}
 
@@ -47,6 +48,9 @@ main() {
 			;;
 		'env')
 			verb_env "$@"
+			;;
+		'git')
+			verb_git "$@"
 			;;
 		'')
 			echo 'No command specified'
@@ -614,6 +618,19 @@ verb_env_unpack() {
 		# Replace symlink with target file
 		rm "$file" && mv "$_repo_file" "$file"
 	done
+}
+
+#######
+# GIT #
+#######
+
+verb_git() {
+	if ! [[ -d "$_repo/.git" ]]; then
+		printf "No git repository detected at %s\n" "$_repo/.git"
+		exit 1
+	fi
+
+	exec git --git-dir="$_repo/.git" --work-tree="$_repo" "$@"
 }
 
 #########
