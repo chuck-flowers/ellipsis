@@ -379,6 +379,7 @@ verb_env() {
 		  rm      - Remove a package from the environment
 		  pack    - Add a file in the env to a package
 		  unpack  - Remove a file in the env from its package
+		  gc      - Remove any dead links to the ellipsis repo
 		EOF
 	}
 
@@ -410,6 +411,9 @@ verb_env() {
 			;;
 		'export'|'out'|'disown'|'unpack')
 			verb_env_unpack "$@"
+			;;
+		'gc')
+			verb_env_gc "$@"
 			;;
 		*)
 			debug "Unknown command: $_command"
@@ -618,6 +622,10 @@ verb_env_unpack() {
 		# Replace symlink with target file
 		rm "$file" && mv "$_repo_file" "$file"
 	done
+}
+
+verb_env_gc() {
+	find -L "$_repo" -type l -delete
 }
 
 #######
