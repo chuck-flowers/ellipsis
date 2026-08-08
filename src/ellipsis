@@ -598,18 +598,42 @@ verb_env_unpack() {
 		esac
 	done
 
-	# TODO: Use picker
+	_files=("$@")
+
+	# If no files were specified; use a picker
+	if [[ "${_files[*]}" == "" ]]; then
+		mapfile _files < <(find "$_target" | pick)
+	fi
+
+	# If no files are still specified; bail out
 	if [[ "$*" == "" ]]; then
 		debug "No file(s) to unpack were specified"
 		exit 1
 	fi
 
-	for file in "$@"; do
-		# Confirm file is a symlink
-		# TODO: Check if any parent is a symlink
-		if [[ ! -L $file ]]; then
-			debug "$file is not a symlink"
-			continue
+	# Confirm file(s) exists
+	for file in "${_files[@]}"; do
+		if [[ ! -e "$file" ]]; then
+			debug "The file '$file' does not exist"
+			exit 1
+		fi
+	done
+
+	for file in "${_files[@]}"; do
+
+		# Find the nearest parent symlink
+		_link="$file"
+		while [[ ! -L "$_link" ]]; do
+			debug "Changing $_link to $(dirname "$_link")"
+			_link="$(dirname "$_link")"
+			if [[ "$_link" == "$_target" ]]; then
+				break
+			fi
+		done
+
+		if [[ "$_link" == "$_target" ]]; then
+			debug "Unable to unpack $file; it does not appear to belong to '$_repo'"
+			break
 		fi
 
 		# Confirm this symlink is managed by ellipsis
@@ -619,8 +643,17 @@ verb_env_unpack() {
 			continue
 		fi
 
-		# Replace symlink with target file
-		rm "$file" && mv "$_repo_file" "$file"
+
+		# Determine package
+		local _pkg
+		_pkg="$(cut -d/ -f1 <<< "$(realpath --relative-to="$_repo" "$_repo_file")")"
+
+		# Uninstall package, and move file out to original location
+		stow --delete "$_pkg" \
+			&& mkdir -p "$(dirname "$file")" \
+			&& mv "$_repo_file" "$file";
+
+		stow "$_pkg"
 	done
 }
 
